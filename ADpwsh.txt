@@ -1,0 +1,128 @@
+### Requirements
+Get-Module -ListAvailable ActiveDirectory
+or
+Import-Module ActiveDirectory
+________________________________________________________________________
+
+### Get a user
+Get-ADUser -Identity jdoe
+
+### Create a new user
+New-ADUser -Name "Jane Doe" -SamAccountName "jdoe" -UserPrincipalName "jdoe@domain.local" `
+  -Path "OU=Users,DC=domain,DC=local" -AccountPassword (ConvertTo-SecureString "P@ssw0rd" -AsPlainText -Force) `
+  -Enabled $true
+
+### Reset user password
+Set-ADAccountPassword -Identity jdoe -NewPassword (ConvertTo-SecureString "NewP@ss123" -AsPlainText -Force) -Reset
+
+### Enable/Disable a user
+Enable-ADAccount -Identity jdoe
+Disable-ADAccount -Identity jdoe
+
+### Find locked-out users
+Search-ADAccount -LockedOut
+
+### Group membership
+Add-ADGroupMember -Identity "HR Group" -Members jdoe
+
+### Get members of a group:
+Get-ADGroupMember -Identity "HR Group"
+
+### Search AD
+Get-ADUser -Filter 'Name -like "*smith*"'
+
+Get-ADComputer -Filter * -SearchBase "OU=Computers,DC=domain,DC=local"
+_____________________________________________________________________________
+
+SCRIPT TO CREATE USERS IN AD with CSV
+
+### csv
+FirstName,LastName,Username,OU,Password
+John,Doe,jdoe,OU=Users,DC=domain,DC=local,P@ssw0rd1
+Jane,Smith,jsmith,OU=Sales,DC=domain,DC=local,P@ssw0rd2
+
+### script:
+Import-Module ActiveDirectory
+
+# Path to your CSV file
+$csvPath = ".\users.csv"
+
+# Import the user data
+$users = Import-Csv -Path $csvPath
+
+foreach ($user in $users) {
+    $securePassword = ConvertTo-SecureString $user.Password -AsPlainText -Force
+
+    $userPrincipalName = "$($user.Username)@domain.local"  # Adjust domain suffix as needed
+
+    Write-Host "Creating user: $($user.Username)..."
+
+    try {
+        New-ADUser `
+            -Name "$($user.FirstName) $($user.LastName)" `
+            -GivenName $user.FirstName `
+            -Surname $user.LastName `
+            -SamAccountName $user.Username `
+            -UserPrincipalName $userPrincipalName `
+            -AccountPassword $securePassword `
+            -Path $user.OU `
+            -Enabled $true `
+            -ChangePasswordAtLogon $false
+
+        Write-Host "✔️ Created: $($user.Username)" -ForegroundColor Green
+    }
+    catch {
+        Write-Warning "Failed to create $($user.Username): $_"
+    }
+}
+______________________________________________________________________________________
+
+GROUP POLICY
+
+### List All Group Policy Objects (GPOs)
+Get-GPO -All
+
+### Create a New GPO
+New-GPO -Name "Enforce Password Policy" -Comment "Sets minimum password length"
+
+or
+
+Set-ADDefaultDomainPasswordPolicy `
+    -Identity "domain.local" `
+    -MinPasswordLength 12 `
+    -PasswordHistoryCount 24 `
+    -ComplexityEnabled $true `
+    -ReversibleEncryptionEnabled $false `
+    -MaxPasswordAge (New-TimeSpan -Days 60) `
+    -MinPasswordAge (New-TimeSpan -Days 1)
+
+### Backup GPOs
+Backup-GPO -Name "Enforce Password Policy" -Path "C:\GPO-Backups"
+
+### Restore a GPO
+Restore-GPO -Name "Enforce Password Policy" -Path "C:\GPO-Backups"
+
+### Link a GPO to an OU
+New-GPLink -Name "Enforce Password Policy" -Target "OU=HR,DC=domain,DC=local" -LinkEnabled Yes
+
+### Set GPO Link Order or Enforcement
+Set-GPLink -Name "Enforce Password Policy" -Target "OU=HR,DC=domain,DC=local" -Enforced Yes -Order 1
+
+### Get GPO Settings Report
+Get-GPOReport -Name "Enforce Password Policy" -ReportType Html -Path "C:\Reports\PasswordPolicy.html"
+
+### Modify Registry-Based GPO Settings
+Set-GPRegistryValue -Name "Enforce Password Policy" `
+  -Key "HKLM\Software\Policies\Microsoft\Windows\System" `
+  -ValueName "EnableSmartScreen" -Type DWord -Value 1
+
+### Copy or Rename GPOs
+Copy-GPO -SourceName "Template GPO" -TargetName "New GPO Copy"
+Rename-GPO -Name "Old GPO Name" -NewName "Updated GPO Name"
+
+### Remove a GPO
+Remove-GPO -Name "Outdated Policy"
+
+
+
+

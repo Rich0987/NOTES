@@ -1,0 +1,252 @@
+Alias (cat, cd, clear, cp, curl, diff, echo, history, kill, ls, man, mkdir, mount,
+	mv, ps, pwd, rm, rmdir, sleep, sort, tee, wget, where)
+_________________________________________________________________________
+find
+Get-ChildItem -Path "C:\" -Recurse -Filter "example.txt" -ErrorAction SilentlyContinue
+__________________________________________________________________________
+grep
+Select-String -Path "C:\Path\To\Search\*" -Pattern "your-word" -Recurse
+__________________________________________________________________________
+passwd / useradd / groupadd
+# 1. Set the password securely
+$password = Read-Host -AsSecureString "Enter the password for the new user"
+# 2. Create the user
+New-LocalUser -Name "newusername" -Password $password -FullName "New User" -Description "Created via PowerShell"
+# 3. Add the user to the Administrators group (optional)
+Add-LocalGroupMember -Group "Administrators" -Member "newusername"
+_____________________________________________________________________________
+tar
+Compress-Archive -Path "C:\SourceFolder" -DestinationPath "C:\Temp\MyArchive.zip"
+_______________________________________________________________________________
+mv
+Move-Item -Path "C:\Temp\MyArchive.zip" -Destination "C:\Archives"
+___________________________________________________________________________
+nmcli
+# Set Static IP and Gateway
+New-NetIPAddress -InterfaceAlias "Ethernet0" `
+                 -IPAddress "192.168.1.100" `
+                 -PrefixLength 24 `
+                 -DefaultGateway "192.168.1.1"
+# Set DNS servers
+Set-DnsClientServerAddress -InterfaceAlias "Ethernet0" `
+                           -ServerAddresses ("8.8.8.8", "8.8.4.4")
+_______________________________________________________________________
+ip -a
+Get-NetIPConfiguration
+_________________________________________________________________________
+setfacl, chmod, chown
+get-acl | set-acl
+_____________________________________________________
+
+swapfile
+current status:
+Get-CimInstance -ClassName Win32_PageFileUsage
+$initialSize = 4096
+$maximumSize = 8192
+$pagefilePath = "C:\pagefile.sys"
+
+# Disable automatic pagefile management
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "PagingFiles" -Value "$pagefilePath $initialSize $maximumSize"
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "ExistingPageFiles" -Value "$pagefilePath"
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "SystemManagedSize" -Value 0
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "AutomaticManagedPagefile" -Value 0
+Write-Host "Custom page file configured. Reboot required to apply changes."
+
+OR:
+
+Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "AutomaticManagedPagefile" -Value 1
+Write-Host "System-managed page file enabled. Reboot required."
+____________________________________________________
+
+shutdown:
+Restart-Computer
+_______________________________________________________________
+
+/etc/passwd, users, groups
+get-localuser
+get-localgroup
+__________________________________
+usermod, chage
+set-localuser
+_______________________________________________
+workgroup
+current:
+(Get-WmiObject -Class Win32_ComputerSystem).Workgroup
+new:
+Add-Computer -WorkGroupName "NewWorkGroupName" -Force -Restart
+_____________________________________________
+ss -tnlup, netstat -tnlup
+Get-NetTCPConnection
+_______________________________
+
+ps, top
+get-process
+
+LIVE:
+
+while ($true) {
+    Clear-Host
+    Get-Process | Sort-Object CPU -Descending | Select-Object -First 10 | Format-Table -AutoSize
+    Start-Sleep -Seconds 3
+}
+
+________________________________________
+systemctl status
+Get-Service -Name "ServiceName"
+
+Start-Service -Name "ServiceName"
+Stop-Service -Name "ServiceName"
+Set-Service -Name "ServiceName" -StartupType Automatic
+Set-Service -Name "ServiceName" -StartupType Disabled
+Restart-Service -Name "ServiceName"
+______________________________________________
+
+priority, nice/renice
+
+current:
+Get-Process -Name "notepad" | Select-Object Name, Id, PriorityClass
+renice:
+(Get-Process -Name "notepad").PriorityClass = "BelowNormal"
+nice:
+Start-Process -FilePath "notepad.exe" -Priority "BelowNormal"
+
+can use: Idle/BelowNormal/Normal/AboveNormal/High
+
+_____________________________________________________________
+
+sed
+(Get-Content file.txt) -replace 'foo', 'bar' | Set-Content file.txt
+___________________________________________________________
+
+crontab
+list:
+Get-ScheduledTask
+schedule:
+
+$Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-File 'C:\Scripts\MyScript.ps1'"
+
+$Trigger = New-ScheduledTaskTrigger -Monthly -DaysOfMonth 15 -At 1:00PM
+
+Register-ScheduledTask -TaskName "MonthlyScript" -Action $Action -Trigger $Trigger -Description "Run script on 15th monthly at 1PM"
+
+_________________________________________________________________
+
+df -hT
+Get-PSDrive -PSProvider 'FileSystem' | Select-Object Name, @{Name="Size(GB)";Expression={[math]::round($_.Used + $_.Free / 1GB, 2)}}, @{Name="Used(GB)";Expression={[math]::round($_.Used / 1GB, 2)}}, @{Name="Free(GB)";Expression={[math]::round($_.Free / 1GB, 2)}}
+
+Get-Volume | Format-Table DriveLetter, FileSystem, @{Name="Size(GB)";Expression={"{0:N2}" -f ($_.Size/1GB)}}, @{Name="Free(GB)";Expression={"{0:N2}" -f ($_.SizeRemaining/1GB)}}
+______________________________________________________________________
+du
+Get-ChildItem -Directory | ForEach-Object {
+    $size = (Get-ChildItem -Recurse -Force -ErrorAction SilentlyContinue -Path $_.FullName | Measure-Object -Property Length -Sum).Sum
+    [PSCustomObject]@{
+        Name = $_.Name
+        SizeMB = [math]::Round($size / 1MB, 2)
+    }
+} | Sort-Object SizeMB -Descending
+__________________________________________________________________________
+lsblk
+get-disk
+get-physicaldisk
+get-partition
+get-volume
+________________________________________________
+
+touch
+New-Item -ItemType File -Path "file.txt" -Force
+__________________________________________________
+vi
+notepad file.txt
+____________________________________________
+
+> >> 2> 2>> &> &>>
+powershell  *> *>>
+___________________________________
+
+echo
+write-output "Hello World!"
+write-host "Hello World!"
+___________________________________
+
+firewall-cmd
+get-netfirewallrules
+
+### Add a new rule (allow inbound on port 8080 TCP)
+New-NetFirewallRule -DisplayName "Allow Port 8080" -Direction Inbound -Protocol TCP -LocalPort 8080 -Action Allow
+
+### Remove a firewall rule by name
+Remove-NetFirewallRule -DisplayName "Allow Port 8080"
+
+### Block outbound traffic to a specific IP
+New-NetFirewallRule -DisplayName "Block Outbound to 1.2.3.4" -Direction Outbound -RemoteAddress 1.2.3.4 -Action Block
+
+### Enable/Disable a firewall rule
+Disable-NetFirewallRule -DisplayName "Allow Port 8080"
+Enable-NetFirewallRule -DisplayName "Allow Port 8080"
+
+#### Enable/Disable Firewall Profiles (Public/Private/Domain)
+# Disable all profiles
+Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
+# Enable all profiles
+Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
+______________________________________________________________________
+
+journalctl
+get-winevent
+
+### Search logs by text (like journalctl | grep)
+Get-WinEvent -LogName System | Where-Object { $_.Message -like "*network*" }
+________________________________________________________________________________
+
+fdisk -l
+Get-Disk
+
+fdisk
+Initialize-Disk -Number 1 -PartitionStyle GPT    		 or MBR
+New-Partition -DiskNumber 1 -UseMaximumSize -AssignDriveLetter
+___________________________________________________________________________
+mkfs.ext4 /ntfs
+Format-Volume -DriveLetter E -FileSystem NTFS -NewFileSystemLabel "MyData"
+___________________________________________________________________________
+mount /dev/sdX /mnt
+
+mkdir
+New-Item -ItemType Directory -Path "C:\Mount\MyDisk"
+
+mount
+Add-PartitionAccessPath -DiskNumber 1 -PartitionNumber 1 -AccessPath "C:\Mount\MyDisk"
+
+umount
+Remove-PartitionAccessPath -DiskNumber 1 -PartitionNumber 1 -AccessPath "C:\Mount\MyDisk"
+________________________________________________________________________________________
+
+raw, uninitialized disk
+Initialize, Partition, Format, and Assign Drive Letter
+
+# Find the first raw/uninitialized disk
+$disk = Get-Disk | Where-Object { $_.PartitionStyle -eq 'RAW' -and $_.OperationalStatus -eq 'Online' } | Select-Object -First 1
+
+if ($disk) {
+    # Initialize the disk as GPT (or MBR if you prefer)
+    Initialize-Disk -Number $disk.Number -PartitionStyle GPT
+
+    # Create a new partition using all available space and assign a drive letter
+    $partition = New-Partition -DiskNumber $disk.Number -UseMaximumSize -AssignDriveLetter
+
+    # Format the partition as NTFS with a label
+    Format-Volume -Partition $partition -FileSystem NTFS -NewFileSystemLabel "NewData" -Confirm:$false
+
+    # Output result
+    Write-Host "Disk $($disk.Number) has been initialized, formatted, and assigned to drive letter $($partition.DriveLetter):"
+} else {
+    Write-Warning "No uninitialized (RAW) disks found."
+}
+__________________________________________________________________________________________
+
+
+
+
+
+
+
+
